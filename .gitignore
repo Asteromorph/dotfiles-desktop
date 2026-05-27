@@ -1,0 +1,8 @@
+# Per-machine monitor overrides (if we ever split them out)
+**/monitors.conf
+
+# Common noise
+*.log
+*.cache
+*.local
+.DS_Store
