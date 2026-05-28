@@ -4,13 +4,13 @@ CachyOS Hyprland rice: Hyprland + Quickshell + kitty + alacritty + GTK theming.
 Only useful on a graphical workstation that runs (or will run) Hyprland.
 
 For the portable dev environment (shell, tmux, neovim, sessionizer), see
-[`dotfiles`](https://github.com/<your-username>/dotfiles) — install that
+[`dotfiles`](https://github.com/Asteromorph/dotfiles) — install that
 **first** on a fresh machine.
 
 ## Quick install
 
 ```bash
-git clone https://github.com/<your-username>/dotfiles-desktop ~/dotfiles-desktop
+git clone https://github.com/Asteromorph/dotfiles-desktop ~/dotfiles-desktop
 cd ~/dotfiles-desktop
 ./install.sh
 ```
