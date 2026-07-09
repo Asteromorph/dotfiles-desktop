@@ -79,6 +79,20 @@ for m in hypr quickshell kitty alacritty gtk local; do
     ok "stowed $m"
 done
 
+# ── 5b. Vietnamese input (ibus-bamboo) Wayland fix ───────────────────────
+# ibus-bamboo's bundled Wayland client crashes on Hyprland (its engine dies
+# with "connection is closed" the moment it opens WAYLAND_DISPLAY). Force the
+# engine through XWayland by stripping WAYLAND_DISPLAY from its exec line.
+# This patches the package-installed component file (NOT stow-managed), so it
+# must be re-applied whenever ibus-bamboo is reinstalled/updated.
+BAMBOO_XML="$HOME/.local/share/ibus/component/bamboo.xml"
+if [ -f "$BAMBOO_XML" ] && ! grep -q 'env -u WAYLAND_DISPLAY' "$BAMBOO_XML"; then
+    step "patch ibus-bamboo component for Wayland (strip WAYLAND_DISPLAY)"
+    sed -i 's#<exec>\(/[^<]*ibus-engine-bamboo --ibus\)</exec>#<exec>/usr/bin/env -u WAYLAND_DISPLAY \1</exec>#' "$BAMBOO_XML"
+    ibus write-cache 2>/dev/null || true
+    ok "patched $BAMBOO_XML"
+fi
+
 # ── done ────────────────────────────────────────────────────────────────
 printf '\n%s━━━━ done ━━━━%s\n' "$GREEN" "$RESET"
 cat <<'EOF'

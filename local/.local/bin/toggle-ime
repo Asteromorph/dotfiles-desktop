@@ -1,19 +1,15 @@
 #!/bin/bash
+# Toggle between Vietnamese (ibus-bamboo) and English input.
+# Switches the active ibus engine instantly — no daemon restart.
 export IBUS_COMPONENT_PATH="$HOME/.local/share/ibus/component:/usr/share/ibus/component"
+export PATH="/usr/bin:/bin:$HOME/.local/bin"
 
-PATH="/usr/bin:/bin:$HOME/.local/bin"
+# Make sure both engines are available to switch between (idempotent, persisted).
+gsettings set org.freedesktop.ibus.general preload-engines "['xkb:us::eng', 'Bamboo']" 2>/dev/null
 
-CURRENT=$(timeout 2 ibus engine 2>/dev/null)
-if echo "$CURRENT" | grep -qi bamboo; then
-  TARGET="xkb:us::eng"
+current=$(timeout 2 ibus engine 2>/dev/null)
+if [ "$current" = "Bamboo" ]; then
+  timeout 3 ibus engine xkb:us::eng
 else
-  TARGET="Bamboo"
+  timeout 3 ibus engine Bamboo
 fi
-
-gsettings set org.freedesktop.ibus.general preload-engines "['$TARGET']" 2>/dev/null
-gsettings set org.freedesktop.ibus.general engines-order "['$TARGET', 'xkb:us::eng']" 2>/dev/null
-ibus restart --type=wayland 2>/dev/null || {
-  killall ibus-daemon 2>/dev/null
-  sleep 0.3
-  ibus-daemon -drx --panel disable &
-}

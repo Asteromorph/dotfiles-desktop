@@ -570,12 +570,13 @@ Scope {
             // }
 	    //
 
-	    // IME indicator
+	    // IME indicator / language toggle button
 	    Rectangle {
+	      id: imePill
 	      height: 24
 	      width: imeText.width + 12
 	      radius: 12
-	      color: root.theme.bgSurface
+	      color: imeMouse.containsMouse ? Qt.lighter(root.theme.bgSurface, 1.3) : root.theme.bgSurface
 	      anchors.verticalCenter: parent.verticalCenter
 	      visible: root.imeEngine !== ""
 
@@ -590,14 +591,22 @@ Scope {
 	      }
 
 	      MouseArea {
+		id: imeMouse
 		anchors.fill: parent
+		hoverEnabled: true
 		cursorShape: Qt.PointingHandCursor
-		onClicked: imeToggleProc.running = true
+		onClicked: {
+		  // Optimistic flip for instant feedback; the re-poll below confirms it.
+		  root.imeLabel = root.imeLabel === "V" ? "E" : "V";
+		  imeToggleProc.running = true;
+		}
 	      }
 
 	      Process {
 		id: imeToggleProc
 		command: ["/home/wippy/.local/bin/toggle-ime"]
+		// After the switch completes, re-read the real engine so the label is authoritative.
+		onExited: imePollProc.running = true
 	      }
 	    }
 
