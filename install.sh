@@ -74,7 +74,7 @@ $AUR -S --needed --noconfirm \
 
 # ── 5. stow rice modules ─────────────────────────────────────────────────
 step "stow rice modules"
-for m in hypr quickshell kitty alacritty gtk; do
+for m in hypr quickshell kitty alacritty gtk local; do
     stow -t "$HOME" -R "$m"
     ok "stowed $m"
 done

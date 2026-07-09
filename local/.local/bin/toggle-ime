@@ -1,0 +1,19 @@
+#!/bin/bash
+export IBUS_COMPONENT_PATH="$HOME/.local/share/ibus/component:/usr/share/ibus/component"
+
+PATH="/usr/bin:/bin:$HOME/.local/bin"
+
+CURRENT=$(timeout 2 ibus engine 2>/dev/null)
+if echo "$CURRENT" | grep -qi bamboo; then
+  TARGET="xkb:us::eng"
+else
+  TARGET="Bamboo"
+fi
+
+gsettings set org.freedesktop.ibus.general preload-engines "['$TARGET']" 2>/dev/null
+gsettings set org.freedesktop.ibus.general engines-order "['$TARGET', 'xkb:us::eng']" 2>/dev/null
+ibus restart --type=wayland 2>/dev/null || {
+  killall ibus-daemon 2>/dev/null
+  sleep 0.3
+  ibus-daemon -drx --panel disable &
+}

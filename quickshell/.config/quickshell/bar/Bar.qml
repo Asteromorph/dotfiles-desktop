@@ -62,6 +62,31 @@ Scope {
     running: false
   }
 
+  // IME state (Vietnamese input method)
+  property string imeEngine: ""
+  property string imeLabel: "E"
+
+  Timer {
+    id: imePoller
+    interval: 2000
+    running: true
+    repeat: true
+    onTriggered: imePollProc.running = true
+  }
+
+  Process {
+    id: imePollProc
+    command: ["sh", "-c", "IBUS_COMPONENT_PATH=$HOME/.local/share/ibus/component:/usr/share/ibus/component timeout 3 ibus engine 2>/dev/null || echo none"]
+    running: true
+    stdout: StdioCollector {
+      onStreamFinished: {
+        const out = text.trim();
+        root.imeEngine = out;
+        root.imeLabel = out.includes("Bamboo") ? "V" : "E";
+      }
+    }
+  }
+
   Process {
     id: backlightDiscovery
     command: ["sh", "-c", "p=$(ls -d /sys/class/backlight/*/brightness 2>/dev/null | head -1); [ -n \"$p\" ] && echo \"$p\" && cat \"${p%brightness}max_brightness\""]
@@ -545,7 +570,38 @@ Scope {
             // }
 	    //
 
-	    // Widget
+	    // IME indicator
+	    Rectangle {
+	      height: 24
+	      width: imeText.width + 12
+	      radius: 12
+	      color: root.theme.bgSurface
+	      anchors.verticalCenter: parent.verticalCenter
+	      visible: root.imeEngine !== ""
+
+	      Text {
+		id: imeText
+		anchors.centerIn: parent
+		text: root.imeLabel
+		color: root.imeLabel === "V" ? root.theme.accentGreen : root.theme.textMuted
+		font.pixelSize: 13
+		font.family: root.font
+		font.bold: true
+	      }
+
+	      MouseArea {
+		anchors.fill: parent
+		cursorShape: Qt.PointingHandCursor
+		onClicked: imeToggleProc.running = true
+	      }
+
+	      Process {
+		id: imeToggleProc
+		command: ["/home/wippy/.local/bin/toggle-ime"]
+	      }
+	    }
+
+	    // Control Center toggle
 	    Rectangle {
 			    height: 24
 			    width: 36

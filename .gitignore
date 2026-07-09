@@ -5,4 +5,5 @@
 *.log
 *.cache
 *.local
+!local/.local/**
 .DS_Store
