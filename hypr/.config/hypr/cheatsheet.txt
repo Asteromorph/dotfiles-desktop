@@ -1,0 +1,217 @@
+═══════════════════════════════════════════════════════════════════════════
+  HYPRLAND CONFIG TRIAGE                          Hyprland 0.56.2 / CachyOS
+  Bound to SUPER+I.  Quit with q.  Search with /word, n for next match.
+═══════════════════════════════════════════════════════════════════════════
+
+Hyprland fails quietly. A malformed line is skipped, the rest of the config
+loads, and you get a desktop that looks almost right with no complaint.
+These are the commands that make it talk.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 1. THE LOOP
+───────────────────────────────────────────────────────────────────────────
+
+Autoreload is on, so saving already reloads. But a reload that FAILED looks
+exactly like one that worked. Step 3 is the one people skip.
+
+    1. edit          change hyprland.conf (reloads on save by itself)
+    2. reload        hyprctl reload
+    3. ask           hyprctl configerrors      <-- must print NOTHING
+
+Anything printed by step 3 is a line being silently ignored.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 2. TEST A LINE BEFORE YOU SAVE IT
+───────────────────────────────────────────────────────────────────────────
+
+The most useful trick here. Feeds ONE config line to the running compositor
+and tells you immediately whether it parses. No file edit, no restart, no
+guessing at wiki syntax that may not match your version.
+
+    hyprctl keyword windowrule 'opacity 0.8 0.8, match:class ^(kitty)$'
+    -> ok
+
+    hyprctl keyword general:gaps_in 8
+    hyprctl keyword bind 'SUPER, G, exec, kitty'
+
+Nothing is permanent: everything set this way lives in memory only.
+`hyprctl reload` wipes it and re-reads your file. Experiment freely.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 3. THE RULE PARSES BUT NOTHING HAPPENS
+───────────────────────────────────────────────────────────────────────────
+
+Different problem. The line is valid, so configerrors is silent -- your
+matcher just doesn't match the window. Stop guessing a window's class:
+
+    hyprctl clients -j | jq -r '.[] | "\(.class)\t\(.title)"'
+
+    kitty     wippy@wippy-pc:~
+    firefox   GitHub - Mozilla Firefox
+
+Just the focused window (click it first):
+
+    hyprctl activewindow -j | jq '{class, title, floating, fullscreen}'
+
+Note: some apps rename themselves after launch. If a rule fires
+inconsistently, the value you want may be the one the window had at OPEN
+time. Electron apps and browsers are the usual offenders.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 4. LOGS
+───────────────────────────────────────────────────────────────────────────
+
+For what configerrors can't tell you: an exec-once program that died, a
+monitor that never came up, the last words before a crash.
+
+    hyprctl rollinglog -f
+        Follow live. Leave running in a spare terminal while you reproduce.
+
+    grep -i error \
+        $XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/hyprland.log
+        The log file. Per-instance, wiped on every restart.
+
+    journalctl -b -1 --user | grep -iE 'hypr|quickshell'
+        Why the last session died. Survives reboots, unlike the above.
+        -b -1 is the previous boot, -b 0 is the current one.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 5. INSPECT LIVE STATE
+───────────────────────────────────────────────────────────────────────────
+
+All of these take -j for JSON, pipeable to jq. When a config value doesn't
+seem to apply, these say what Hyprland actually believes.
+
+    hyprctl monitors        Real output names, resolution, refresh, scale.
+                            The names your `monitor =` lines must match.
+    hyprctl clients         Every open window: class, title, floating, ws.
+    hyprctl binds           Every keybind actually registered. Check here
+                            when a shortcut does nothing.
+    hyprctl getoption OPT   Live value of one setting, e.g.
+                            hyprctl getoption decoration:rounding
+    hyprctl layers          Bars, notifications, wallpapers -- where
+                            quickshell lives. Empty means it isn't drawing.
+    hyprctl devices         Keyboards, mice, touchpads, current layout.
+    hyprctl activewindow    Full properties of whatever is focused.
+    hyprctl version         Exact version. Check this FIRST against any
+                            wiki page or forum answer.
+
+Find shadowed keybinds (Hyprland picks the last one defined and says
+nothing about the conflict):
+
+    hyprctl binds -j | jq -r '.[] | "\(.modmask)-\(.key)"' | sort | uniq -d
+
+Check a config file without a running session -- safe from a TTY or SSH:
+
+    Hyprland --verify-config
+
+
+───────────────────────────────────────────────────────────────────────────
+ 6. THE 0.56.2 SYNTAX TRAP
+───────────────────────────────────────────────────────────────────────────
+
+Hyprland changes config syntax between releases, and most tutorials and
+forum answers are written for older versions. This one already bit you:
+
+    WRONG   windowrule = opacity 0.8 0.8, class:^(kitty)$
+    WRONG   windowrule = opacity 0.5 0.5, floating:1
+
+    RIGHT   windowrule = opacity 0.8 0.8, match:class ^(kitty)$
+    RIGHT   windowrule = opacity 0.5 0.5, match:float 1
+
+Three things changed at once:
+    - matchers need a `match:` prefix
+    - field and value are split by a SPACE, not a colon
+    - the field is `float`, not `floating`
+
+Valid matchers:  class  title  float  fullscreen  pin  xwayland  tag
+
+The error message misleads. With a colon you get
+    invalid field class:^(kitty)$: missing a value
+which reads like a quoting problem. It isn't -- the parser is reading the
+whole token as a field NAME. Switch to a space and you get the honest
+error: `invalid field type class`.
+
+DON'T MIX .conf AND LUA. 0.56.2 also supports a real Lua config
+(hl.window_rule({...}), example at /usr/share/hypr/hyprland.lua). Those
+calls do NOTHING inside hyprland.conf and produce no error at all -- they
+are simply ignored. Pick one format and stay in it.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 7. BLACK SCREEN, NO KEYBOARD, NOTHING
+───────────────────────────────────────────────────────────────────────────
+
+You will do this to yourself eventually. Don't hold the power button --
+you almost always still have a text console.
+
+    Ctrl+Alt+F2         Get to a real text login on tty2.
+    Ctrl+Alt+F1         Back to the graphical session.
+
+Undo the last edit from that console (your config is a git repo, which is
+the entire point of keeping it in one):
+
+    cd ~/dotfiles-desktop && git diff
+    git checkout -- hypr/.config/hypr/hyprland.conf
+
+Restart the login manager -- kills every graphical session, gives a clean
+one, loses unsaved work:
+
+    sudo systemctl restart plasmalogin
+
+LOG OUT, NEVER "SWITCH USER". The login manager silently fails to start a
+session on a second console. If a session is already running and you reach
+the greeter via Switch User, picking Hyprland authenticates you and then
+drops you straight back to the greeter, which quietly falls back to Plasma.
+Always Log Out fully first. Verify with `loginctl` -- you should see no
+graphical session of your own before logging back in.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 8. FILE MAP
+───────────────────────────────────────────────────────────────────────────
+
+Everything under ~/.config is a symlink into the dotfiles repo, so editing
+either path is the same file -- but only the repo side can be committed.
+
+    ~/dotfiles-desktop/
+        The real repo. Stow modules mirror $HOME. Edit and commit here.
+
+    hypr/.config/hypr/hyprland.conf
+        Compositor config: binds, monitors, window rules, startup.
+
+    hypr/.config/hypr/cheatsheet.txt
+        This file.
+
+    quickshell/.config/quickshell/
+        Bar, launcher, control centre, wallpaper. QML, not Hyprland config.
+
+    ~/dotfiles/
+        A DIFFERENT, older repo -- shell and nvim only. No desktop config.
+
+
+───────────────────────────────────────────────────────────────────────────
+ 9. QUICKSHELL (the bar, launcher, control centre)
+───────────────────────────────────────────────────────────────────────────
+
+Separate process from Hyprland, with its own logs. If the bar is broken,
+hyprctl will not tell you anything useful.
+
+    qs log                      Why it failed.
+    qs list                     Is it even running.
+    qs ipc call theme toggle    Poke a component.
+
+Components: theme, launcher, wallpaper, controlCenter
+
+
+───────────────────────────────────────────────────────────────────────────
+
+Commands verified against Hyprland 0.56.2 (tag v0.56.2, commit efb5099).
+Hyprland's config grammar shifts between releases -- when a snippet from
+the wiki or a forum doesn't work, check `hyprctl version` first, then test
+the line with `hyprctl keyword` before writing it to a file.
